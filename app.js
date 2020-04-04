@@ -3,78 +3,92 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
-const mongoose=require("mongoose");
-var md5=require("md5");
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 
 
-mongoose.connect("mongodb://localhost:27017/UserDB",{ useNewUrlParser: true ,useUnifiedTopology:true});
+mongoose.connect("mongodb://localhost:27017/UserDB", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
 
 
 const app = express();
 
 app.set('view engine', 'ejs');
 
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
 app.use(express.static("public"));
 
 
-const userSchema=new mongoose.Schema({
-  email:String,
-  password:String
+const userSchema = new mongoose.Schema({
+  email: String,
+  password: String
 });
-var v=md5("anikota1");
-console.log(v);
 
-const User=new mongoose.model("User",userSchema);
 
-app.get("/", function(req, res){
+const User = new mongoose.model("User", userSchema);
+
+app.get("/", function(req, res) {
   res.render("home");
 });
 
-app.get("/register", function(req, res){
+app.get("/register", function(req, res) {
   res.render("register");
 });
 
-app.get("/login", function(req, res){
+app.get("/login", function(req, res) {
   res.render("login");
 });
 
-app.post("/register",function(req,res){
-  const newUser=new User({
-    email:req.body.username,
-    password:md5(req.body.password)
+app.post("/register", function(req, res) {
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const newUser = new User({
+      email: req.body.username,
+      password: hash
+    });
+    newUser.save(function(err) {
+      if (err) {
+        console.log(err);
+      } else {
+        res.render("secrets");
+      }
+    });
   });
-  newUser.save(function(err){
-    if(err){
-      console.log(err);
-    }
-    else{
-      res.render("secrets");
-    }
-  });
+
+
 });
 
 
-app.post("/login",function(req,res){
-  var email=req.body.username;
-  var password=md5(req.body.password);
+app.post("/login", function(req, res) {
+  var email = req.body.username;
+  var password = req.body.password;
 
-  User.findOne({email:email},function(err,foundUser){
-    if(err){
+  User.findOne({
+    email: email
+  }, function(err, foundUser) {
+    if (err) {
       console.log(err);
-    }
-    else{
-      if(foundUser){
-        if(foundUser.password===password){
-          res.render("secrets");
-        }
+    } else {
+      if (foundUser) {
+        bcrypt.compare(password, foundUser.password, function(err, result) {
+          if (result === true) {
+            res.render("secrets");
+          }
+
+
+        });
+
 
       }
     }
 
   });
 });
-app.listen(3000,function(req,res){
+app.listen(3000, function(req, res) {
   console.log("server starte don port 3000");
 });
